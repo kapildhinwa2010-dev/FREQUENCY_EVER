@@ -1,0 +1,7 @@
+torch>=2.3.0
+numpy>=1.26.0
+pyyaml>=6.0
+einops>=0.8.0
+pytest>=8.0.0
+# mamba-ssm (optional, STEP 6 mein kaam aayega)
+# mamba-ssm>=2.0.0
