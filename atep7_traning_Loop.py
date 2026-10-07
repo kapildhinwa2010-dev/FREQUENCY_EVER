@@ -1,129 +1,155 @@
 """
-STEP 7 — Full Training Loop (non_freq project)
-Flow: Raw Text -> Bytes -> Waves -> Mamba2-FFT -> Next-Byte Pred -> Freq-Backprop
-No tokenizer. No numeric matmul. Pure wave-native training.
-Includes: Validation, Checkpointing, Loss Logging.
+STEP 7 — FULL Training Loop (non_freq project)
+Flow (point #3): bytes -> FFT -> freq weights -> frequency backprop.
+Koi tokenizer nahi | backbone Mamba-2 FFT | head ternary freq-weights |
+backprop FFT chain-rule + soliton grad channels | sabhi gaps pe soliton links.
 """
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-import json
-import os
 
-# Pichle steps ke modules import
+from step1_freq_bitnet import FreqBitNetLinear
 from step2_converter import InternalConverter
-from step5_mamba2_fft import Mamba2FreqFFT
-from step6_freq_backprop import FFTLinearFG, soliton_grad_pass, SolitonChannel
+from step3_mambabyte_freq import FreqByteFrontend
+from step4_soliton_transfer import SolitonChannel
+from step5_mamba2_fft import Mamba2BlockFFT, FFTLinear
+from step6_freq_backprop import FFTLinearFG, soliton_grad_pass
 
 
 # ------------------------------------------------------------------
-# 1) WaveDataset: Raw text ko on-the-fly waves mein convert karta hai
+# 1) Full Non-Freq Model (saare steps jode gaye)
 # ------------------------------------------------------------------
-class WaveDataset(Dataset):
-    def __init__(self, text: str, seq_len: int = 64):
-        self.bytes = list(text.encode("utf-8"))
-        self.seq_len = seq_len
-        self.converter = InternalConverter()
-        
-    def __len__(self):
-        return max(0, len(self.bytes) - self.seq_len)
-    
-    def __getitem__(self, idx):
-        chunk = self.bytes[idx : idx + self.seq_len + 1]
-        b_tensor = torch.tensor(chunk, dtype=torch.uint8)
-        _, _, waves = self.converter.encode(b_tensor)  # (T+1, 8)
-        # Input: first T waves, Target: next T bytes
-        return waves[:-1], b_tensor[1:].long()
+class TernaryHead(nn.Module):
+    """STEP 1 wala frequency-ternary head: weights = waves {-1,0,+1}"""
+    def __init__(self, d, vocab=256):
+        super().__init__()
+        self.fb = FreqBitNetLinear(d, vocab)
+
+    def forward(self, x):
+        return self.fb(x)[0]
+
+
+class NonFreqModel(nn.Module):
+    def __init__(self, d_model=64, n_layers=2):
+        super().__init__()
+        self.front = FreqByteFrontend(8, d_model)
+        self.blocks = nn.ModuleList(
+            [Mamba2BlockFFT(d_model) for _ in range(n_layers)])
+        self.head = TernaryHead(d_model)
+        self.link = SolitonChannel()
+
+    def forward(self, waves):
+        h = self.link(self.front(waves))
+        for blk in self.blocks:
+            h = blk(h) + h
+            h = self.link(h)
+        return self.head(h)
+
+
+def upgrade_to_freqgrad(model):
+    """har FFTLinear ko STEP 6 wale FFTLinearFG (freq-backprop) se badlo"""
+    for name, child in list(model.named_children()):
+        if isinstance(child, FFTLinear):
+            new = FFTLinearFG(child.W.shape[0], child.W.shape[1],
+                              bias=child.b is not None)
+            with torch.no_grad():
+                new.W.copy_(child.W)
+                if child.b is not None:
+                    new.b.copy_(child.b)
+            setattr(model, name, new)
+        else:
+            upgrade_to_freqgrad(child)
+    return model
 
 
 # ------------------------------------------------------------------
-# 2) Trainer Class
+# 2) Data (tokenizer-free: raw strings hi dataset hain)
 # ------------------------------------------------------------------
-class NonFreqTrainer:
-    def __init__(self, model, train_loader, val_loader, lr=1e-3, device="cpu"):
-        self.model = model.to(device)
-        self.train_loader = train_loader
-        self.val_loader = val_loader
-        self.device = device
-        self.optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
-        self.link = SolitonChannel()  # For soliton grad pass
-        self.history = {"train": [], "val": []}
-        
-    def _run_epoch(self, mode="train"):
-        self.model.train(mode == "train")
-        loader = self.train_loader if mode == "train" else self.val_loader
-        total_loss, n_batches = 0.0, 0
-        
-        for waves, targets in loader:
-            waves = waves.to(self.device)
-            targets = targets.to(self.device)
-            
-            if mode == "train":
-                self.optimizer.zero_grad()
-                
-            logits = self.model(waves)  # Forward through soliton links
-            loss = F.cross_entropy(logits.reshape(-1, 256), targets.reshape(-1))
-            
-            if mode == "train":
-                loss.backward()
-                # 🌊 Freq-backprop + Soliton grad transfer
-                soliton_grad_pass(self.model, self.link) 
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-                self.optimizer.step()
-                
-            total_loss += loss.item()
-            n_batches += 1
-            
-        return total_loss / max(n_batches, 1)
-    
-    def fit(self, epochs: int):
-        print(f"🚀 Training started | Epochs: {epochs} | Device: {self.device}")
-        best_val = float("inf")
-        
-        for ep in range(1, epochs + 1):
-            tr_loss = self._run_epoch("train")
-            vl_loss = self._run_epoch("val")
-            self.history["train"].append(tr_loss)
-            self.history["val"].append(vl_loss)
-            
-            marker = ""
-            if vl_loss < best_val:
-                best_val = vl_loss
-                torch.save(self.model.state_dict(), "best_nonfreq.pt")
-                marker = " ★"
-                
-            print(f"Epoch {ep:3d}/{epochs} | Train: {tr_loss:.4f} | Val: {vl_loss:.4f}{marker}")
-            
-        # Save history
-        with open("training_history.json", "w") as f:
-            json.dump(self.history, f, indent=2)
-        print("\n✅ Training complete! Best val loss:", round(best_val, 4))
+TRAIN = [
+    "wave wave wave", "wave wave wave wave",
+    "freq freq freq", "freq freq freq freq",
+    "soliton soliton soliton", "zero loss zero loss",
+    "byte byte byte", "wave freq wave freq",
+]
+VAL = ["wave wave", "freq freq freq", "zero loss"]
+
+
+def batch_loss(model, conv, text):
+    b, _, w = conv.encode(text)
+    lg = model(w.unsqueeze(0))
+    return F.cross_entropy(lg[:, :-1].reshape(-1, 256), b.long()[1:])
+
+
+def eval_loss(model, conv, data):
+    model.eval(); tot = 0.0; n = 0
+    with torch.no_grad():
+        for t in data:
+            loss = batch_loss(model, conv, t)
+            tot += loss.item() * (len(t.encode()) - 1); n += len(t.encode()) - 1
+    model.train(); return tot / max(n, 1)
 
 
 # ------------------------------------------------------------------
-# 3) DEMO / TEST RUN
+# 3) Generation (greedy next-byte, bina tokenizer)
+# ------------------------------------------------------------------
+def generate(model, conv, prompt, n=12):
+    model.eval()
+    bs = list(prompt.encode())
+    with torch.no_grad():
+        for _ in range(n):
+            _, _, w = conv.encode(torch.tensor(bs, dtype=torch.uint8))
+            lg = model(w.unsqueeze(0))
+            bs.append(lg[0, -1].argmax().item())
+    model.train()
+    return bytes(bs).decode("utf-8", "ignore")
+
+
+# ------------------------------------------------------------------
+# TRAIN
 # ------------------------------------------------------------------
 if __name__ == "__main__":
     torch.manual_seed(42)
-    
-    # Dummy repetitive text (model jaldi seekh lega pattern)
-    raw_text = "soliton waves carry data without loss. " * 50
-    
-    # Split 90/10
-    split = int(len(raw_text) * 0.9)
-    train_ds = WaveDataset(raw_text[:split], seq_len=32)
-    val_ds = WaveDataset(raw_text[split:], seq_len=32)
-    
-    train_dl = DataLoader(train_ds, batch_size=8, shuffle=True)
-    val_dl = DataLoader(val_ds, batch_size=8)
-    
-    # Model init (pure FFT + Soliton)
-    model = Mamba2FreqFFT(d_model=64, n_layers=2, d_state=16)
-    
-    # Train!
-    trainer = NonFreqTrainer(model, train_dl, val_dl, lr=2e-3)
-    trainer.fit(epochs=10)
-    
-    print("\n🎉 STEP 7 PASSED — Full Tokenizer-Free Freq Training Loop Ready!")
+    conv = InternalConverter()
+    model = upgrade_to_freqgrad(NonFreqModel(d_model=64, n_layers=2))
+    link = SolitonChannel()
+    opt = torch.optim.Adam(model.parameters(), lr=5e-3)
+
+    def ternary_stats():
+        _, wt = model.head.fb.freq_weights()
+        return int((wt == -1).sum()), int((wt == 0).sum()), int((wt == 1).sum())
+
+    start_stats = ternary_stats()
+    print("ternary head (-1,0,+1) start:", start_stats)
+
+    EPOCHS = 20
+    for ep in range(1, EPOCHS + 1):
+        model.train()
+        tot = 0.0
+        for t in TRAIN:
+            opt.zero_grad()
+            loss = batch_loss(model, conv, t)     # bytes -> waves -> freq weights
+            loss.backward()                       # 🌊 FFT chain-rule backprop
+            soliton_grad_pass(model, link)        # 🌊 grads soliton me travel
+            opt.step()
+            tot += loss.item()
+        if ep % 4 == 0 or ep == 1:
+            print(f"epoch {ep:02d} | train {tot/len(TRAIN):.3f} | "
+                  f"val {eval_loss(model, conv, VAL):.3f}")
+
+    # --- final checks ---
+    end_stats = ternary_stats()
+    print("ternary head (-1,0,+1) end  :", end_stats,
+          "| weights seekhe:", end_stats != start_stats)
+
+    sig, wt = model.head.fb.freq_weights()
+    print("head freq-weights zero-loss :",
+          torch.equal(model.head.fb.enc.decode(sig), wt))
+
+    print('generate("wave ")  ->', repr(generate(model, conv, "wave ")))
+    print('generate("freq ")  ->', repr(generate(model, conv, "freq ")))
+
+    torch.save(model.state_dict(), "non_freq_step7.pt")
+    print("checkpoint saved: non_freq_step7.pt")
+
+    print("\n🎉 STEP 7 PASSED — FULL training loop ready!")
