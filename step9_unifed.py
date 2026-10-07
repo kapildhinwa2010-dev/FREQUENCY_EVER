@@ -1,6 +1,15 @@
 """
 STEP 9 (FINAL) — Unified NonFreqModel (non_freq project)
-Saare 8 steps ek model mein + eval layer + stability audit + benchmark + export.
+Imports = GitHub repo ke FINAL file names:
+  1. step_1/freq_bitnet.py
+  2. converter.py
+  3. step3_mambabyte_freq.py
+  4. step4_soliton_transfer.py
+  5. step5_mamba2_fft.py
+  6. step6_freq_back.py
+  7. atep7_traning_Loop.py
+  8. step8_loop_thinking.py
+(+ try/except fallback: purane flat names pe bhi chal jayega)
 Philosophy: numbers nahi, WAVES — computation = wave interference.
 """
 
@@ -10,12 +19,26 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from step1_freq_bitnet import TernaryQuantizeSTE, FreqSignatureEncoder
-from step2_converter import InternalConverter
+# --- FINAL repo names (fallback: purane flat names) ---
+try:
+    from step_1.freq_bitnet import TernaryQuantizeSTE, FreqSignatureEncoder
+except ImportError:
+    from step1_freq_bitnet import TernaryQuantizeSTE, FreqSignatureEncoder
+
+try:
+    from converter import InternalConverter
+except ImportError:
+    from step2_converter import InternalConverter
+
 from step3_mambabyte_freq import FreqByteFrontend
 from step4_soliton_transfer import SolitonChannel
 from step5_mamba2_fft import Mamba2BlockFFT, FFTLinear, fft_matmul
-from step6_freq_backprop import FFTMatMulFn, soliton_grad_pass
+
+try:
+    from step6_freq_back import FFTMatMulFn, soliton_grad_pass
+except ImportError:
+    from step6_freq_backprop import FFTMatMulFn, soliton_grad_pass
+
 from step8_loop_thinking import LoopThinking
 
 
@@ -50,12 +73,12 @@ class NonFreqModel(nn.Module):
     def __init__(self, d_model=64, n_layers=2, max_loops=4,
                  ternary_head=True, num_bins=8, **kw):
         super().__init__()
-        self.conv = InternalConverter()                  # STEP 2 (andar hi)
-        self.front = FreqByteFrontend(8, d_model)        # STEP 3
+        self.conv = InternalConverter()                  # converter.py
+        self.front = FreqByteFrontend(8, d_model)        # step3
         self.blocks = nn.ModuleList(
-            [Mamba2BlockFFT(d_model, **kw) for _ in range(n_layers)])   # STEP 5
-        self.link = SolitonChannel()                     # STEP 4
-        self.loop = LoopThinking(d_model, max_loops, **kw)              # STEP 8
+            [Mamba2BlockFFT(d_model, **kw) for _ in range(n_layers)])   # step5
+        self.link = SolitonChannel()                     # step4
+        self.loop = LoopThinking(d_model, max_loops, **kw)              # step8
         self.head = (FreqBitNetLinearFG(d_model, 256, num_bins)
                      if ternary_head else FFTLinear(d_model, 256))
         self.cfg = dict(d_model=d_model, n_layers=n_layers,
@@ -138,6 +161,17 @@ def export(model, path="nonfreq_final.pt"):
             "thinking: weight-tied loops + ACT halt gate",
         ],
         "config": model.cfg,
+        "repo_structure": [
+            "step_1/freq_bitnet.py",
+            "converter.py",
+            "step3_mambabyte_freq.py",
+            "step4_soliton_transfer.py",
+            "step5_mamba2_fft.py",
+            "step6_freq_back.py",
+            "atep7_traning_Loop.py",
+            "step8_loop_thinking.py",
+            "step9_unified_final.py",
+        ],
     }
     with open("blueprint.json", "w") as f:
         json.dump(blueprint, f, indent=2, ensure_ascii=False)
@@ -148,17 +182,18 @@ README = """# non_freq 🌊
 
 text -> bytes -> waves -> [Mamba-2 FFT blocks + soliton links] -> loop thinking -> next-byte
 
+## Repository Structure
 | Step | File | Module |
 |---|---|---|
-| 1 | step1_freq_bitnet.py | Ternary weights as frequencies |
-| 2 | step2_converter.py | Internal converter (no tokenizer) |
-| 3 | step3_mambabyte_freq.py | MambaByte + frequency bytes |
-| 4 | step4_soliton_transfer.py | Soliton zero-loss channels |
-| 5 | step5_mamba2_fft.py | Mamba-2 + FFT calc engine |
-| 6 | step6_freq_backprop.py | Frequency backpropagation |
-| 7 | step7_training_loop.py | Tokenizer-free training loop |
-| 8 | step8_loop_thinking.py | Loop thinking (ACT) |
-| 9 | step9_unified_final.py | Unified model + eval + export |
+| 1 | `step_1/freq_bitnet.py` | Ternary weights as frequencies |
+| 2 | `converter.py` | Internal converter (no tokenizer) |
+| 3 | `step3_mambabyte_freq.py` | MambaByte + frequency bytes |
+| 4 | `step4_soliton_transfer.py` | Soliton zero-loss channels |
+| 5 | `step5_mamba2_fft.py` | Mamba-2 + FFT calc engine |
+| 6 | `step6_freq_back.py` | Frequency backpropagation |
+| 7 | `atep7_traning_Loop.py` | Tokenizer-free training loop |
+| 8 | `step8_loop_thinking.py` | Loop thinking (ACT) |
+| 9 | `step9_unified_final.py` | Unified model + eval + export |
 
 Run: `python step9_unified_final.py`
 """
@@ -195,7 +230,7 @@ if __name__ == "__main__":
     # --- stability audit ---
     print("stability:", stability_audit(model))
 
-    # --- benchmark (sach sach: CPU pe BLAS jeet-ta hai, asli jeet wave-hardware pe) ---
+    # --- benchmark ---
     print("benchmark (n, fft_ms, matmul_ms):")
     for row in benchmark():
         print("   ", row)
