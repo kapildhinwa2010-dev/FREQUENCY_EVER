@@ -1,0 +1,39 @@
+project:
+  name: non_freq
+  seed: 42
+
+# --- Soliton Wave Data Transfer (Core Pipeline) ---
+soliton:
+  enabled: true
+  zero_loss: true            # no data loss guarantee
+  carrier_freq: 1.0          # base carrier frequency
+  amplitude: 1.0
+
+# --- Freq / FFT Engine (replaces matrix multiply) ---
+freq:
+  fft_type: rfft             # real-input FFT
+  num_freq_bins: 64          # kitni frequencies use hongi
+  use_only_2_freq: false     # tumhare note wala "only 2 freq" option
+
+# --- 1.58 BitNet Ternary Weights ---
+bitnet:
+  enabled: true
+  levels: [-1.0, 0.0, 1.0]   # negative / neutral / positive
+  scale: 1.0
+
+# --- MambaByte Backbone (tokenizer-free) ---
+mamba:
+  d_model: 128
+  d_state: 16
+  d_conv: 4
+  expand: 2
+  n_layers: 2
+  byte_vocab: 256            # raw bytes, no tokenizer
+
+# --- Training Flow ---
+training:
+  # raw bytes -> FFT -> freq weights -> backprop
+  batch_size: 8
+  seq_len: 64
+  lr: 1.0e-3
+  steps: 100
