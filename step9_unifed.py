@@ -4,7 +4,7 @@ Imports = GitHub repo ke FINAL file names:
   1. step_1/freq_bitnet.py
   2. converter.py
   3. step3_mambabyte_freq.py
-  4. step4_soliton_transfer.py
+  4. step4_soliton_transfer.py   <-- v2: REAL NLSE physics soliton channel
   5. step5_mamba2_fft.py
   6. step6_freq_back.py
   7. atep7_traning_Loop.py
@@ -31,7 +31,7 @@ except ImportError:
     from step2_converter import InternalConverter
 
 from step3_mambabyte_freq import FreqByteFrontend
-from step4_soliton_transfer import SolitonChannel
+from step4_soliton_transfer import SolitonChannel, soliton_proof
 from step5_mamba2_fft import Mamba2BlockFFT, FFTLinear, fft_matmul
 
 try:
@@ -77,7 +77,7 @@ class NonFreqModel(nn.Module):
         self.front = FreqByteFrontend(8, d_model)        # step3
         self.blocks = nn.ModuleList(
             [Mamba2BlockFFT(d_model, **kw) for _ in range(n_layers)])   # step5
-        self.link = SolitonChannel()                     # step4
+        self.link = SolitonChannel()                     # step4 (REAL NLSE physics)
         self.loop = LoopThinking(d_model, max_loops, **kw)              # step8
         self.head = (FreqBitNetLinearFG(d_model, 256, num_bins)
                      if ternary_head else FFTLinear(d_model, 256))
@@ -90,20 +90,28 @@ class NonFreqModel(nn.Module):
         return self.conv.encode(x)[2]                    # str/bytes/tokens -> waves
 
     def forward(self, x, return_thoughts=False):
-        h = self.link(self.front(self.to_waves(x)))
+        w = self.to_waves(x)
+        if w.dim() == 2:                                 # string/2D input safety
+            w = w.unsqueeze(0)
+        h = self.link(self.front(w))
         for blk in self.blocks:
             h = self.link(blk(h) + h)
         h_th, ponder, trace = self.loop(h)               # 🧠 loop thinking
-        logits = self.head(h_th)
-        return (logits, ponder, trace) if return_thoughts else logits
+        lg = self.head(h_th)
+        return (lg, ponder, trace) if return_thoughts else lg
 
     @torch.no_grad()
     def generate(self, seed: str, n: int = 20, ctx_len: int = 32):
         ctx = list(seed.encode("utf-8"))
+        s0 = len(ctx)
+        device = next(self.parameters()).device          # GPU/CPU safety
         for _ in range(n):
-            w = self.to_waves(torch.tensor(ctx[-ctx_len:], dtype=torch.uint8))
-            ctx.append(self(w.unsqueeze(0))[0, -1].argmax().item())
-        return bytes(ctx[len(seed.encode('utf-8')):]).decode("latin-1", "ignore")
+            t = torch.tensor(ctx[-ctx_len:], dtype=torch.uint8, device=device)
+            w = self.to_waves(t)
+            if w.dim() == 2:
+                w = w.unsqueeze(0)
+            ctx.append(self(w)[0, -1].argmax().item())
+        return bytes(ctx[s0:]).decode("utf-8", "ignore")
 
 
 # ------------------------------------------------------------------
@@ -121,12 +129,9 @@ def evaluate(model, text):
 
 
 def stability_audit(model):
-    rep = {}
-    x = torch.randn(2, 24, 32)
-    rep["soliton_zero_loss_err"] = round((model.link(x, 2.0) - x).abs().max().item(), 8)
-    psi = model.link.encode(x)
-    rep["energy_ratio"] = round((model.link.transfer(psi, 2.0).abs().pow(2).sum()
-                                 / psi.abs().pow(2).sum()).item(), 6)
+    """REAL NLSE physics audit: zero-loss + soliton integrity + energy conservation"""
+    rep = model.link.audit(torch.randn(2, 24, 32), 2.0)
+    rep = {k: round(v, 6) for k, v in rep.items()}
     if isinstance(model.head, FreqBitNetLinearFG):
         e = model.head.spectrum_energy()
         rep["head_active_freq_bins"] = (e > 0).nonzero().flatten().tolist()
@@ -156,8 +161,8 @@ def export(model, path="nonfreq_final.pt"):
             "weights: ternary {-1,0,+1} = 2 carrier frequencies + silence",
             "input: no tokenizer; text -> bytes -> bit-carrier waves",
             "calc: FFT pointwise multiply (koi GEMM nahi)",
-            "transfer: soliton channels (unitary => zero data loss)",
-            "backprop: freq-domain chain rule + soliton grad channels",
+            "transfer: NLSE soliton channels (SSFM, N=1 phase-modulation => physics-grade zero loss)",
+            "backprop: freq-domain chain rule + lossless identity grad through soliton",
             "thinking: weight-tied loops + ACT halt gate",
         ],
         "config": model.cfg,
@@ -180,7 +185,7 @@ def export(model, path="nonfreq_final.pt"):
 README = """# non_freq 🌊
 > Numbers nahi, WAVES. Computation = wave interference.
 
-text -> bytes -> waves -> [Mamba-2 FFT blocks + soliton links] -> loop thinking -> next-byte
+text -> bytes -> waves -> [Mamba-2 FFT blocks + NLSE soliton links] -> loop thinking -> next-byte
 
 ## Repository Structure
 | Step | File | Module |
@@ -188,7 +193,7 @@ text -> bytes -> waves -> [Mamba-2 FFT blocks + soliton links] -> loop thinking 
 | 1 | `step_1/freq_bitnet.py` | Ternary weights as frequencies |
 | 2 | `converter.py` | Internal converter (no tokenizer) |
 | 3 | `step3_mambabyte_freq.py` | MambaByte + frequency bytes |
-| 4 | `step4_soliton_transfer.py` | Soliton zero-loss channels |
+| 4 | `step4_soliton_transfer.py` | **REAL NLSE soliton channels (SSFM, N=1)** |
 | 5 | `step5_mamba2_fft.py` | Mamba-2 + FFT calc engine |
 | 6 | `step6_freq_back.py` | Frequency backpropagation |
 | 7 | `atep7_traning_Loop.py` | Tokenizer-free training loop |
@@ -227,8 +232,12 @@ if __name__ == "__main__":
     # --- eval layer ---
     print("eval:", evaluate(model, "soliton waves zero loss soliton waves"))
 
-    # --- stability audit ---
-    print("stability:", stability_audit(model))
+    # --- REAL physics stability audit ---
+    print("stability (NLSE physics):", stability_audit(model))
+
+    # --- soliton proof: N=1 shape preserve vs linear dispersion ---
+    cs, cl = soliton_proof()
+    print(f"soliton proof | shape corr SOLITON: {cs:.4f} | linear: {cl:.4f}")
 
     # --- benchmark ---
     print("benchmark (n, fft_ms, matmul_ms):")
@@ -244,3 +253,4 @@ if __name__ == "__main__":
     print("exported: nonfreq_final.pt, blueprint.json, README.md")
 
     print("\n🏁 NON_FREQ PROJECT COMPLETE — notebook se code tak, saare 9 steps unified!")
+    print("🌊 DATA TRANSFER: REAL NLSE SOLITON PHYSICS (SSFM, N=1 phase-modulation)")
