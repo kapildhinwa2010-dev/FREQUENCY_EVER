@@ -1,126 +1,86 @@
-"""
-STEP 2 — Internal Converter (non_freq project)
-Flow: raw text / token-ids  ->  UTF-8 bytes  ->  bit-carrier frequency waves
-Koi bahar ka tokenizer nahi — converter model ke ANDAR hai.
-Zero data loss: waves -> bytes -> text exact wapas milta hai.
-"""
+"""Configuration helpers for the non_freq project."""
 
-import torch
-import torch.nn as nn
+from __future__ import annotations
 
-BITS = 8                # 1 byte = 8 carriers
-BYTES_PER_TOKEN = 2     # purane token-ids ko 2 bytes mein collapse karo (0..65535)
+from dataclasses import dataclass, field
+from typing import List
+
+import yaml
 
 
-# ------------------------------------------------------------------
-# 1) Text / Tokens -> Bytes
-# ------------------------------------------------------------------
-def text_to_bytes(text: str) -> torch.Tensor:
-    """raw text -> UTF-8 byte stream (tokenizer-free)"""
-    return torch.tensor(list(text.encode("utf-8")), dtype=torch.uint8)
+@dataclass
+class SolitonConfig:
+    enabled: bool = True
+    zero_loss: bool = True
+    carrier_freq: float = 1.0
+    amplitude: float = 1.0
 
 
-def tokens_to_bytes(tokens) -> torch.Tensor:
-    """purane datasets ke token-ids -> bytes (little-endian, 2 bytes/token)"""
-    t = torch.as_tensor(tokens, dtype=torch.int64).flatten()
-    out = []
-    for tok in t.tolist():
-        tok = max(0, min(tok, 2 ** (8 * BYTES_PER_TOKEN) - 1))
-        out += list(tok.to_bytes(BYTES_PER_TOKEN, "little"))
-    return torch.tensor(out, dtype=torch.uint8)
+@dataclass
+class FreqConfig:
+    fft_type: str = "rfft"
+    num_freq_bins: int = 64
+    use_only_2_freq: bool = False
 
 
-# ------------------------------------------------------------------
-# 2) Bytes -> Bits -> Waves (frequency signature)
-# ------------------------------------------------------------------
-def bytes_to_bits(b: torch.Tensor) -> torch.Tensor:
-    """(T,) uint8 -> (T, 8) float bits, LSB first"""
-    shifts = torch.arange(BITS, device=b.device)[None, :]
-    return ((b.to(torch.int64)[:, None] >> shifts) & 1).float()
+@dataclass
+class BitNetConfig:
+    enabled: bool = True
+    levels: List[float] = field(default_factory=lambda: [-1.0, 0.0, 1.0])
+    scale: float = 1.0
 
 
-def bits_to_bytes(bits: torch.Tensor) -> torch.Tensor:
-    """(T, 8) bits -> (T,) uint8  (inverse, zero-loss)"""
-    weights = (2 ** torch.arange(BITS, device=bits.device)).float()
-    return (bits @ weights).to(torch.uint8)
+@dataclass
+class MambaConfig:
+    d_model: int = 128
+    d_state: int = 16
+    d_conv: int = 4
+    expand: int = 2
+    n_layers: int = 2
+    byte_vocab: int = 256
 
 
-class ByteToWave(nn.Module):
-    """
-    har bit ek carrier wave hai:
-        amplitude = bit (1 = wave ON, 0 = silence)
-        phase     = 2*pi*k*t/T  (position info wave ke phase mein)
-    """
-    def __init__(self, num_carriers: int = BITS):
-        super().__init__()
-        self.num_carriers = num_carriers
-
-    def forward(self, bits: torch.Tensor) -> torch.Tensor:
-        T = bits.shape[0]
-        t = torch.arange(T, device=bits.device).float()[:, None]      # (T,1)
-        k = torch.arange(1, self.num_carriers + 1,
-                         device=bits.device).float()[None, :]         # (1,8)
-        phase = 2 * torch.pi * k * t / max(T, 1)
-        return bits.to(torch.cfloat) * torch.exp(1j * phase)          # (T,8) waves
-
-    def decode_bits(self, waves: torch.Tensor) -> torch.Tensor:
-        """wave amplitude se bits wapas (phase ignore => robust)"""
-        return (waves.abs() > 0.5).float()
+@dataclass
+class TrainingConfig:
+    batch_size: int = 8
+    seq_len: int = 64
+    lr: float = 1e-3
+    steps: int = 100
 
 
-# ------------------------------------------------------------------
-# 3) Internal Converter — model ke andar wala full pipeline
-# ------------------------------------------------------------------
-class InternalConverter(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.wave = ByteToWave()
-
-    def encode(self, x):
-        """str | token-list | uint8-tensor  ->  (bytes, bits, waves)"""
-        if isinstance(x, str):
-            b = text_to_bytes(x)
-        elif torch.is_tensor(x) and x.dtype == torch.uint8:
-            b = x
-        else:                                   # list/tuple/int-tensor => token-ids
-            b = tokens_to_bytes(x)
-        bits = bytes_to_bits(b)
-        waves = self.wave(bits)
-        return b, bits, waves
-
-    def decode(self, waves: torch.Tensor) -> torch.Tensor:
-        """waves -> bytes (zero-loss reverse path)"""
-        return bits_to_bytes(self.wave.decode_bits(waves))
+@dataclass
+class Config:
+    soliton: SolitonConfig = field(default_factory=SolitonConfig)
+    freq: FreqConfig = field(default_factory=FreqConfig)
+    bitnet: BitNetConfig = field(default_factory=BitNetConfig)
+    mamba: MambaConfig = field(default_factory=MambaConfig)
+    training: TrainingConfig = field(default_factory=TrainingConfig)
 
 
-# ------------------------------------------------------------------
-# DEMO / TEST
-# ------------------------------------------------------------------
-if __name__ == "__main__":
-    conv = InternalConverter()
+def load_config(path: str = "configs/Default.yaml") -> Config:
+    with open(path, "r", encoding="utf-8") as f:
+        raw = yaml.safe_load(f) or {}
+    project = raw.get("project", {})
+    soliton = raw.get("soliton", {})
+    freq = raw.get("freq", {})
+    bitnet = raw.get("bitnet", {})
+    mamba = raw.get("mamba", {})
+    training = raw.get("training", {})
+    return Config(
+        soliton=SolitonConfig(**soliton),
+        freq=FreqConfig(**freq),
+        bitnet=BitNetConfig(**bitnet),
+        mamba=MambaConfig(**mamba),
+        training=TrainingConfig(**training),
+    )
 
-    # --- (a) raw text path (tokenizer-free) ---
-    text = "non freq zindabad"
-    b, bits, waves = conv.encode(text)
-    dec = conv.decode(waves)
-    print("text        :", text)
-    print("bytes       :", b.tolist())
-    print("waves shape :", tuple(waves.shape), "=> (T, 8 carriers)")
-    print("zero-loss   :", torch.equal(dec, b),
-          "| text match:", bytes(dec.tolist()).decode("utf-8") == text)
 
-    # --- (b) purane token-ids path ---
-    toks = [121, 47, 903, 255]
-    b2, _, w2 = conv.encode(toks)
-    dec2 = conv.decode(w2).tolist()
-    rec = [int.from_bytes(bytes(dec2[i:i + BYTES_PER_TOKEN]), "little")
-           for i in range(0, len(dec2), BYTES_PER_TOKEN)]
-    print("\ntokens in   :", toks)
-    print("tokens out  :", rec, "| match:", rec == toks)
-
-    # --- (c) carrier activity: kaunsi frequencies zinda hain ---
-    activity = waves.abs().mean(dim=0)
-    print("\nPer-carrier activity (8 carriers):",
-          [round(a, 3) for a in activity.tolist()])
-
-    print("\n🎉 STEP 2 PASSED — Internal Converter ready!")q
+__all__ = [
+    "Config",
+    "SolitonConfig",
+    "FreqConfig",
+    "BitNetConfig",
+    "MambaConfig",
+    "TrainingConfig",
+    "load_config",
+]
