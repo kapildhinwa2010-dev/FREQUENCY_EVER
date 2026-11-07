@@ -55,13 +55,15 @@ class FreqSignatureEncoder(nn.Module):
 #    zero-padding => koi wrap-around loss nahi (zero data loss)
 # ------------------------------------------------------------------
 def fft_matmul(x, W):
-    # x: (B, in) | W: (out, in) -> y: (B, out)
-    n = x.shape[-1]
+    # x: (..., in) | W: (out, in) -> y: (..., out)   [2D aur 3D batched dono safe]
+    out_shape = x.shape[:-1] + (W.shape[0],)
+    xf = x.reshape(-1, x.shape[-1])                 # leading batch dims flatten
+    n = xf.shape[-1]
     pad = 2 * n                                    # no aliasing => no data loss
-    X = torch.fft.rfft(x, n=pad, dim=-1)           # (B, F)
+    X = torch.fft.rfft(xf, n=pad, dim=-1)          # (B', F)
     K = torch.fft.rfft(W.flip(-1), n=pad, dim=-1)  # (out, F)  flip => dot-product
     Y = torch.fft.irfft(X[:, None, :] * K[None, :, :], n=pad, dim=-1)  # pointwise multiply
-    return Y[..., n - 1]                           # (B, out)
+    return Y[..., n - 1].reshape(out_shape)        # (..., out)
 
 
 # ------------------------------------------------------------------

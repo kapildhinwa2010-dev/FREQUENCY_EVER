@@ -14,7 +14,7 @@ from step2_converter import InternalConverter
 from step3_mambabyte_freq import FreqByteFrontend
 from step4_soliton_transfer import SolitonChannel
 from step5_mamba2_fft import Mamba2BlockFFT, FFTLinear
-from step6_freq_back import FFTLinearFG, soliton_grad_pass
+from step6_freq_backprop import FFTLinearFG, soliton_grad_pass
 
 
 # ------------------------------------------------------------------

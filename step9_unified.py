@@ -1,12 +1,12 @@
 """
 STEP 9 (FINAL) — Unified NonFreqModel (non_freq project)
-Imports = GitHub repo ke FINAL (renamed) file names:
+Imports = GitHub repo ke RENAMED file names (sahi naam):
   1. step1_freq_bitnet.py
   2. step2_converter.py
   3. step3_mambabyte_freq.py
   4. step4_soliton_transfer.py   <-- v2: REAL NLSE physics soliton channel
   5. step5_mamba2_fft.py
-  6. step6_freq_back.py
+  6. step6_freq_backprop.py
   7. step7_training_loop.py
   8. step8_loop_thinking.py
 Philosophy: numbers nahi, WAVES — computation = wave interference.
@@ -18,16 +18,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# --- FINAL repo names (renamed) ---
+# --- RENAMED repo files (final sahi naam) ---
 from step1_freq_bitnet import TernaryQuantizeSTE, FreqSignatureEncoder
 from step2_converter import InternalConverter
-
 from step3_mambabyte_freq import FreqByteFrontend
 from step4_soliton_transfer import SolitonChannel, soliton_proof
 from step5_mamba2_fft import Mamba2BlockFFT, FFTLinear, fft_matmul
-
-from step6_freq_back import FFTMatMulFn, soliton_grad_pass
-
+from step6_freq_backprop import FFTMatMulFn, soliton_grad_pass
 from step8_loop_thinking import LoopThinking
 
 
@@ -62,7 +59,7 @@ class NonFreqModel(nn.Module):
     def __init__(self, d_model=64, n_layers=2, max_loops=4,
                  ternary_head=True, num_bins=8, **kw):
         super().__init__()
-        self.conv = InternalConverter()                  # converter.py
+        self.conv = InternalConverter()                  # step2_converter.py
         self.front = FreqByteFrontend(8, d_model)        # step3
         self.blocks = nn.ModuleList(
             [Mamba2BlockFFT(d_model, **kw) for _ in range(n_layers)])   # step5
@@ -161,7 +158,7 @@ def export(model, path="nonfreq_final.pt"):
             "step3_mambabyte_freq.py",
             "step4_soliton_transfer.py",
             "step5_mamba2_fft.py",
-            "step6_freq_back.py",
+            "step6_freq_backprop.py",
             "step7_training_loop.py",
             "step8_loop_thinking.py",
             "step9_unified.py",
@@ -184,7 +181,7 @@ text -> bytes -> waves -> [Mamba-2 FFT blocks + NLSE soliton links] -> loop thin
 | 3 | `step3_mambabyte_freq.py` | MambaByte + frequency bytes |
 | 4 | `step4_soliton_transfer.py` | **REAL NLSE soliton channels (SSFM, N=1)** |
 | 5 | `step5_mamba2_fft.py` | Mamba-2 + FFT calc engine |
-| 6 | `step6_freq_back.py` | Frequency backpropagation |
+| 6 | `step6_freq_backprop.py` | Frequency backpropagation |
 | 7 | `step7_training_loop.py` | Tokenizer-free training loop |
 | 8 | `step8_loop_thinking.py` | Loop thinking (ACT) |
 | 9 | `step9_unified.py` | Unified model + eval + export |

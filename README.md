@@ -47,7 +47,7 @@ Yahan data **waves** hai, weights **frequencies** hain, aur calculation **FFT (F
 | 3 | `step3_mambabyte_freq.py` | MambaByte + frequency bytes |
 | 4 | `step4_soliton_transfer.py` | REAL NLSE soliton channels (SSFM, N=1) |
 | 5 | `step5_mamba2_fft.py` | Mamba-2 + FFT calc engine |
-| 6 | `step6_freq_back.py` | Frequency backpropagation |
+| 6 | `step6_freq_backprop.py` | Frequency backpropagation |
 | 7 | `step7_training_loop.py` | Tokenizer-free training loop |
 | 8 | `step8_loop_thinking.py` | Loop thinking (ACT) |
 | 9 | `step9_unified.py` | Unified model + eval + export |
