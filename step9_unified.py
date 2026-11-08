@@ -13,6 +13,7 @@ Philosophy: numbers nahi, WAVES — computation = wave interference.
 """
 
 import json
+import os
 import time
 import torch
 import torch.nn as nn
@@ -190,8 +191,10 @@ Run: `python step9_unified.py`
 """
 
 
-def write_readme():
-    with open("README.md", "w") as f:
+def write_readme(path="artifacts/README.md"):
+    """project README clobber na ho, isliye demo README artifacts/ me jaata hai"""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w") as f:
         f.write(README)
 
 
@@ -236,7 +239,7 @@ if __name__ == "__main__":
     # --- export ---
     export(model)
     write_readme()
-    print("exported: nonfreq_final.pt, blueprint.json, README.md")
+    print("exported: nonfreq_final.pt, blueprint.json, artifacts/README.md")
 
     print("\n🏁 NON_FREQ PROJECT COMPLETE — notebook se code tak, saare 9 steps unified!")
     print("🌊 DATA TRANSFER: REAL NLSE SOLITON PHYSICS (SSFM, N=1 phase-modulation)")

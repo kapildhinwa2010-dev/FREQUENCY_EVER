@@ -6,6 +6,7 @@ on:
     paths:
       - 'step*.py'
       - 'requirements.txt'
+      - 'tests/**'
       - '.github/workflows/**'
   workflow_dispatch:
 
@@ -27,6 +28,11 @@ jobs:
         run: |
           pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
           grep -v -i 'torch' requirements.txt | xargs -r pip install --quiet
+
+      - name: Bounded smoke tests (pytest)
+        run: |
+          pip install --quiet pytest
+          python -m pytest tests/ -q
 
       - name: Run all 9 steps
         run: |

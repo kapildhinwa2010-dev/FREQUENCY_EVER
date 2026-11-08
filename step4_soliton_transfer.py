@@ -41,16 +41,27 @@ class SolitonChannel(nn.Module):
         return tau, centers, N
 
     # --- data -> soliton pulse train (phase-modulated N=1 solitons) ---
+    @staticmethod
+    def _seq_len(x):
+        """encode-time sequence length (robust: 0D scalars / 1D grads / 2D / 3D)"""
+        if x.dim() >= 3:
+            return x.shape[1]
+        if x.dim() == 2:
+            return x.shape[0]
+        return x.numel()
+
     def encode(self, x):
         orig = x.shape
-        if x.dim() != 3:
-            x = x.reshape(1, -1, x.shape[-1])
+        if x.dim() >= 2:
+            x = x.reshape(1, -1, x.shape[-1]) if x.dim() == 2 else x
+        else:                                   # 0D/1D (scalar/grad tensors)
+            x = x.reshape(1, -1, 1)
         B, T, D = x.shape
         tau, centers, N = self._grid(T, x.device)
-        template = self._sech((tau.view(1, 1, -1) - centers.view(1, T, 1)) / self.T0)
+        template = self._sech((tau.view(1, -1) - centers.view(T, 1)) / self.T0)  # (T,N)
         phi = math.pi * 0.95 * torch.tanh(x / self.c)          # wrap-free phase map
-        A = torch.exp(1j * phi).permute(0, 2, 1).unsqueeze(-1) # (B,D,T,1)
-        psi = (A * template.unsqueeze(0)).reshape(B, D, N) * math.sqrt(self.P0)
+        A = torch.exp(1j * phi).permute(0, 2, 1)               # (B,D,T) complex
+        psi = (A @ template) * math.sqrt(self.P0)              # (B,D,N) soliton train
         return psi, orig
 
     # --- SSFM propagation: dispersion <-> Kerr nonlinearity ---
@@ -70,10 +81,11 @@ class SolitonChannel(nn.Module):
         return psi
 
     # --- soliton field -> data wapas ---
-    def decode(self, psi, T, orig):
+    def decode(self, psi, T, orig, distance=None):
         _, centers, _ = self._grid(T, psi.device)
         samp = psi[:, :, centers.long()]                       # slot-center sampling
-        gphase = self.gamma * self.P0 * self.distance / 2      # deterministic global phase
+        dist = self.distance if distance is None else distance
+        gphase = self.gamma * self.P0 * dist / 2              # deterministic global phase
         samp = samp * torch.exp(-1j * gphase)
         phi = torch.clamp(torch.angle(samp), -math.pi * 0.99, math.pi * 0.99)
         x = self.c * torch.atanh(torch.clamp(phi / (math.pi * 0.95), -0.999, 0.999))
@@ -82,7 +94,7 @@ class SolitonChannel(nn.Module):
     def physics(self, x, distance=None):
         psi, orig = self.encode(x)
         psi = self.propagate(psi, distance)
-        return self.decode(psi, x.shape[1] if x.dim() == 3 else x.shape[-2], orig)
+        return self.decode(psi, self._seq_len(x), orig, distance)
 
     def forward(self, x, distance=None):
         with torch.no_grad():                      # physics simulation (no memory store)
@@ -95,7 +107,7 @@ class SolitonChannel(nn.Module):
             y = self.physics(x, distance)
             psi, _ = self.encode(x)
             psiL = self.propagate(psi, distance)
-            T = x.shape[1] if x.dim() == 3 else x.shape[-2]
+            T = self._seq_len(x)
             _, centers, _ = self._grid(T, x.device)
             amp = psiL[:, :, centers.long()].abs()
             return dict(
