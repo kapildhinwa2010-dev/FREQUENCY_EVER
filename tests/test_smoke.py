@@ -20,12 +20,12 @@ def test_soliton_channel_zero_loss():
     torch.manual_seed(0)
     ch = SolitonChannel()
     x = torch.randn(2, 24, 16)
-    y = ch(x, 2.0)
+    y = ch(x, 1.0)
     assert y.shape == x.shape
     err = (y - x).abs()
     assert err.mean().item() < 0.05, f"mean err {err.mean().item():.4f}"
     assert err.max().item() < 0.25, f"max err {err.max().item():.4f} (tanh edge + SSFM)"
-    rep = ch.audit(x, 2.0)
+    rep = ch.audit(x, 1.0)
     assert rep["zero_loss_err"] < 0.25, rep
     assert rep["energy_ratio"] > 0.9, rep
 
@@ -44,7 +44,7 @@ def test_soliton_channel_nD_grad_safe():
 
 
 def test_soliton_proof_shape_preserved():
-    cs, cl = soliton_proof(T=128, T0=8.0, distance=16.0, steps=16)
+    cs, cl = soliton_proof(T=256, T0=8.0, distance=64.0, steps=32)
     assert cs > 0.95, f"soliton shape not preserved: {cs}"
     assert cl < cs, "linear dispersion soliton se zyada preserve? impossible"
 

@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Dhinwa
+    given-names: Kapil
+title: "FREQUENCY_EVER (non_freq): wave-native AI architecture"
+version: 0.1.0
+date-released: "2026-11-08"
+url: "https://github.com/kapildhinwa2010-dev/FREQUENCY_EVER"
+repository-code: "https://github.com/kapildhinwa2010-dev/FREQUENCY_EVER"
+license: MIT

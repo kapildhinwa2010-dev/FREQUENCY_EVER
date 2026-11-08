@@ -61,7 +61,7 @@ class SolitonChannel(nn.Module):
         template = self._sech((tau.view(1, -1) - centers.view(T, 1)) / self.T0)  # (T,N)
         phi = math.pi * 0.95 * torch.tanh(x / self.c)          # wrap-free phase map
         A = torch.exp(1j * phi).permute(0, 2, 1)               # (B,D,T) complex
-        psi = (A @ template) * math.sqrt(self.P0)              # (B,D,N) soliton train
+        psi = (A @ template.to(A.dtype)) * math.sqrt(self.P0)  # (B,D,N) complex soliton train
         return psi, orig
 
     # --- SSFM propagation: dispersion <-> Kerr nonlinearity ---

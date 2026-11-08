@@ -8,6 +8,8 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-orange.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-v0.1.0-purple.svg)]()
+[![CI run-all-steps](https://github.com/kapildhinwa2010-dev/FREQUENCY_EVER/actions/workflows/run-all-steps.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/FREQUENCY_EVER/actions/workflows/run-all-steps.yml)
+[![CodeQL](https://github.com/kapildhinwa2010-dev/FREQUENCY_EVER/actions/workflows/codeql.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/FREQUENCY_EVER/actions/workflows/codeql.yml)
 
 ---
 
@@ -53,6 +55,30 @@ Here, data is **waves**, weights are **frequencies**, and computation happens vi
 | 9 | `step9_unified.py` | Unified model + eval + export |
 
 Run: `python step9_unified.py`
+
+---
+
+## 📦 Installation
+
+```bash
+pip install .            # runtime
+pip install -e ".[dev]"   # dev (pytest)
+```
+
+## 🧪 Tests & CI
+
+```bash
+python -m pytest tests/ -q    # bounded smoke tests (seconds me)
+```
+
+- **Bounded smoke tests**: converter roundtrip, soliton zero-loss physics (SSFM), 0D-3D gradient safety, soliton shape proof, unified model forward+generate
+- **run-all-steps CI**: har push pe 9 step demos, results `ci_logs/results.txt` me auto-commit
+- **CodeQL** weekly security scan + Dependabot
+
+## ⚠️ Research Status (Honest Note)
+
+Ye ek **research prototype** hai. Physics claims (soliton zero-loss, SSFM audit) bounded smoke tests se verified hain;
+architecture kisi production LLM ka replacement nahi hai. Bina proof ke koi accuracy/benchmark claim nahi kiya gaya.
 
 ---
 

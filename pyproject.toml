@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frequency-ever"
+version = "0.1.0"
+description = "non_freq: wave-native AI architecture - zero GEMM, soliton data transfer, loop thinking"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Kapil Dhinwa" }]
+keywords = ["wave-native", "soliton", "fft", "mamba", "research"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+]
+dependencies = [
+  "torch>=2.3.0",
+  "numpy>=1.26.0",
+  "pyyaml>=6.0",
+  "einops>=0.8.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools]
+py-modules = [
+  "step1_freq_bitnet", "step2_converter", "step3_mambabyte_freq",
+  "step4_soliton_transfer", "step5_mamba2_fft", "step6_freq_backprop",
+  "step7_training_loop", "step8_loop_thinking", "step9_unified",
+]
+packages = ["non_freq"]
