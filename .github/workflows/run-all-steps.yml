@@ -31,8 +31,10 @@ jobs:
 
       - name: Bounded smoke tests (pytest)
         run: |
+          mkdir -p ci_logs
           pip install --quiet pytest
-          python -m pytest tests/ -q
+          python -m pytest tests/ -q --tb=short 2>&1 | tee ci_logs/pytest.log
+          test ${PIPESTATUS[0]} -eq 0
 
       - name: Run all 9 steps
         run: |
