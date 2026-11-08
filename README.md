@@ -1,7 +1,7 @@
 # 🌊 non_freq — Wave-Native AI Architecture
 
-> **Numbers nahi, WAVES.**  
-> Ek aisa AI blueprint jisme core mein koi floating-point numbers nahi, koi tokenizer nahi, aur koi matrix-multiply (GEMM) nahi.  
+> **Not numbers — WAVES.**  
+> An AI blueprint whose core has no floating-point numbers, no tokenizer, and no matrix multiplication (GEMM).  
 > Computation = **Wave Interference**. Data travel = **Soliton Waves (Zero Loss)**.
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
@@ -13,17 +13,17 @@
 
 ## 🧠 The Philosophy
 
-Aaj ke saare LLMs (GPT, Llama, Gemini) **numbers ke pinjre** mein qaid hain:
-1. Text ko pehle **tokens** mein todo (BPE/SentencePiece).
-2. Tokens ko **floating-point vectors** banao.
-3. Unhe **matrix-multiply (GEMM)** karke GPU par megawatts bijli jalao.
+Every LLM today (GPT, Llama, Gemini) is **locked inside a cage of numbers**:
+1. First, break text into **tokens** (BPE/SentencePiece).
+2. Turn the tokens into **floating-point vectors**.
+3. **Matrix-multiply (GEMM)** them and burn megawatts of electricity on GPUs.
 
-**`non_freq` is paradigm ko todta hai.**  
-Yahan data **waves** hai, weights **frequencies** hain, aur calculation **FFT (Fast Fourier Transform)** ke zariye hoti hai. Ye architecture human brain aur physics ke zyada kareeb hai — jahan information spikes/waves ke roop mein travel karti hai, decimal numbers ke roop mein nahi.
+**`non_freq` breaks this paradigm.**  
+Here, data is **waves**, weights are **frequencies**, and computation happens via the **FFT (Fast Fourier Transform)**. This architecture is closer to the human brain and to physics — where information travels as spikes/waves, not as decimal numbers.
 
 ---
 
-## ✨ Khaasiyat (Key Features)
+## ✨ Key Features
 
 | Feature | Traditional LLMs | `non_freq` 🌊 |
 | :--- | :--- | :--- |
