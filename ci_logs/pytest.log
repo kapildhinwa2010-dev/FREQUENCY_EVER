@@ -2,7 +2,7 @@
 =================================== FAILURES ===================================
 ________________________ test_soliton_channel_zero_loss ________________________
 tests/test_smoke.py:23: in test_soliton_channel_zero_loss
-    y = ch(x, 2.0)
+    y = ch(x, 1.0)
         ^^^^^^^^^^
 /opt/hostedtoolcache/Python/3.11.18/x64/lib/python3.11/site-packages/torch/nn/modules/module.py:1787: in _wrapped_call_impl
     return self._call_impl(*args, **kwargs)
@@ -13,13 +13,13 @@ tests/test_smoke.py:23: in test_soliton_channel_zero_loss
 step4_soliton_transfer.py:101: in forward
     y = self.physics(x, distance)
         ^^^^^^^^^^^^^^^^^^^^^^^^^
-step4_soliton_transfer.py:95: in physics
-    psi, orig = self.encode(x)
-                ^^^^^^^^^^^^^^
-step4_soliton_transfer.py:64: in encode
-    psi = (A @ template) * math.sqrt(self.P0)              # (B,D,N) soliton train
-           ^^^^^^^^^^^^
-E   RuntimeError: expected scalar type Float but found ComplexFloat
+step4_soliton_transfer.py:97: in physics
+    return self.decode(psi, self._seq_len(x), orig, distance)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+step4_soliton_transfer.py:89: in decode
+    samp = samp * torch.exp(-1j * gphase)
+                  ^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: exp(): argument 'input' (position 1) must be Tensor, not complex
 ______________________ test_soliton_channel_nD_grad_safe _______________________
 tests/test_smoke.py:39: in test_soliton_channel_nD_grad_safe
     y = ch(g, 1.0)
@@ -33,18 +33,18 @@ tests/test_smoke.py:39: in test_soliton_channel_nD_grad_safe
 step4_soliton_transfer.py:101: in forward
     y = self.physics(x, distance)
         ^^^^^^^^^^^^^^^^^^^^^^^^^
-step4_soliton_transfer.py:95: in physics
-    psi, orig = self.encode(x)
-                ^^^^^^^^^^^^^^
-step4_soliton_transfer.py:64: in encode
-    psi = (A @ template) * math.sqrt(self.P0)              # (B,D,N) soliton train
-           ^^^^^^^^^^^^
-E   RuntimeError: expected m1 and m2 to have the same dtype, but got: c10::complex<float> != float
+step4_soliton_transfer.py:97: in physics
+    return self.decode(psi, self._seq_len(x), orig, distance)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+step4_soliton_transfer.py:89: in decode
+    samp = samp * torch.exp(-1j * gphase)
+                  ^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: exp(): argument 'input' (position 1) must be Tensor, not complex
 ______________________ test_soliton_proof_shape_preserved ______________________
 tests/test_smoke.py:49: in test_soliton_proof_shape_preserved
     assert cl < cs, "linear dispersion soliton se zyada preserve? impossible"
 E   AssertionError: linear dispersion soliton se zyada preserve? impossible
-E   assert 0.9998413920402527 < 0.9994031190872192
+E   assert 0.9874925017356873 < 0.9638738632202148
 ___________________ test_unified_model_forward_and_generate ____________________
 tests/test_smoke.py:56: in test_unified_model_forward_and_generate
     lg = model(waves.unsqueeze(0))
@@ -67,17 +67,17 @@ step9_unified.py:83: in forward
 step4_soliton_transfer.py:101: in forward
     y = self.physics(x, distance)
         ^^^^^^^^^^^^^^^^^^^^^^^^^
-step4_soliton_transfer.py:95: in physics
-    psi, orig = self.encode(x)
-                ^^^^^^^^^^^^^^
-step4_soliton_transfer.py:64: in encode
-    psi = (A @ template) * math.sqrt(self.P0)              # (B,D,N) soliton train
-           ^^^^^^^^^^^^
-E   RuntimeError: expected m1 and m2 to have the same dtype, but got: c10::complex<float> != float
+step4_soliton_transfer.py:97: in physics
+    return self.decode(psi, self._seq_len(x), orig, distance)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+step4_soliton_transfer.py:89: in decode
+    samp = samp * torch.exp(-1j * gphase)
+                  ^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: exp(): argument 'input' (position 1) must be Tensor, not complex
 =========================== short test summary info ============================
-FAILED tests/test_smoke.py::test_soliton_channel_zero_loss - RuntimeError: expected scalar type Float but found ComplexFloat
-FAILED tests/test_smoke.py::test_soliton_channel_nD_grad_safe - RuntimeError: expected m1 and m2 to have the same dtype, but got: c10::complex<float> != float
+FAILED tests/test_smoke.py::test_soliton_channel_zero_loss - TypeError: exp(): argument 'input' (position 1) must be Tensor, not complex
+FAILED tests/test_smoke.py::test_soliton_channel_nD_grad_safe - TypeError: exp(): argument 'input' (position 1) must be Tensor, not complex
 FAILED tests/test_smoke.py::test_soliton_proof_shape_preserved - AssertionError: linear dispersion soliton se zyada preserve? impossible
-assert 0.9998413920402527 < 0.9994031190872192
-FAILED tests/test_smoke.py::test_unified_model_forward_and_generate - RuntimeError: expected m1 and m2 to have the same dtype, but got: c10::complex<float> != float
-4 failed, 1 passed in 1.49s
+assert 0.9874925017356873 < 0.9638738632202148
+FAILED tests/test_smoke.py::test_unified_model_forward_and_generate - TypeError: exp(): argument 'input' (position 1) must be Tensor, not complex
+4 failed, 1 passed in 1.81s
