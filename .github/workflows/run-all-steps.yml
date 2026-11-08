@@ -1,5 +1,4 @@
 name: run-all-steps
-# v2 - retrigger
 
 on:
   push:
@@ -27,7 +26,7 @@ jobs:
       - name: Install dependencies (CPU torch)
         run: |
           pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
-          grep -v -i 'torch' requirements.txt | grep -v -E '^\s*#' | grep -v -E '^\s*
+          grep -v -i 'torch' requirements.txt | grep -v -E '^\s*#' | grep -v -E '^\s*$' | xargs -r pip install --quiet
 
       - name: Bounded smoke tests (pytest)
         run: |
@@ -64,39 +63,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A ci_logs/ || echo "no logs"
           git commit -m "ci: all-steps run results [skip ci]" || echo "nothing to commit"
-          git push
- | xargs -r pip install --quiet
-
-      - name: Bounded smoke tests (pytest)
-        run: |
-          pip install --quiet pytest
-          python -m pytest tests/ -q
-
-      - name: Run all 9 steps
-        run: |
-          mkdir -p ci_logs
-          echo "python: $(python --version 2>&1)" > ci_logs/results.txt
-          echo "torch : $(python -c 'import torch; print(torch.__version__)')" >> ci_logs/results.txt
-          echo "" >> ci_logs/results.txt
-          for f in step1_freq_bitnet.py step2_converter.py step3_mambabyte_freq.py step4_soliton_transfer.py step5_mamba2_fft.py step6_freq_backprop.py step7_training_loop.py step8_loop_thinking.py step9_unified.py; do
-            echo "===== RUNNING $f ====="
-            if python "$f" > "ci_logs/$f.log" 2>&1; then
-              echo "PASS  $f" >> ci_logs/results.txt
-              tail -3 "ci_logs/$f.log"
-            else
-              echo "FAIL  $f" >> ci_logs/results.txt
-              tail -40 "ci_logs/$f.log"
-            fi
-          done
-          echo ""
-          cat ci_logs/results.txt
-          if grep -q FAIL ci_logs/results.txt; then echo "::error::kuch steps FAIL hue"; exit 1; fi
-
-      - name: Commit results back to repo
-        if: always()
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ci_logs/
-          git commit -m "ci: all-steps run results [skip ci]" || echo "nothing to commit"
+          git pull --rebase origin main || true
           git push
