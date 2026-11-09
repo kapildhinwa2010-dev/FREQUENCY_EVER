@@ -2,7 +2,7 @@
 STEP 4 (v2) — PHYSICS-BASED SOLITON WAVE DATA TRANSFER (non_freq project)
 ==========================================================================
 Asli physics: Nonlinear Schrödinger Equation (NLSE) — optical solitons
-    i ψ_z = -(β2/2) ψ_tt - γ |ψ|² ψ        (envelope form)
+    i ψ_z = +(β2/2) ψ_tt - γ |ψ|² ψ        (envelope form)
 Fundamental soliton (N=1):  γ P0 T0² / |β2| = 1
     => pulse shape AUR phase preserve karta hai, sirf global phase ghoomta hai
 
@@ -22,7 +22,7 @@ import torch.nn.functional as F
 
 class SolitonChannel(nn.Module):
     """REAL NLSE soliton channel — data soliton pulses ke phase mein travel karta hai"""
-    def __init__(self, samples_per_slot=8, T0=1.0, beta2=-1.0,
+    def __init__(self, samples_per_slot=64, T0=1.0, beta2=-1.0,
                  distance=1.0, steps=4, dynamic_range=3.0):
         super().__init__()
         self.S, self.T0, self.beta2 = samples_per_slot, T0, beta2
@@ -36,7 +36,8 @@ class SolitonChannel(nn.Module):
 
     def _grid(self, T, device):
         N = self.S * T
-        tau = torch.arange(N, device=device).float()
+        dt = self.T0 / 8.0
+        tau = torch.arange(N, device=device).float() * dt
         centers = torch.arange(T, device=device).float() * self.S + self.S / 2
         return tau, centers, N
 
@@ -58,7 +59,8 @@ class SolitonChannel(nn.Module):
             x = x.reshape(1, -1, 1)
         B, T, D = x.shape
         tau, centers, N = self._grid(T, x.device)
-        template = self._sech((tau.view(1, -1) - centers.view(T, 1)) / self.T0)  # (T,N)
+        center_times = centers * (self.T0 / 8.0)
+        template = self._sech((tau.view(1, -1) - center_times.view(T, 1)) / self.T0)  # (T,N)
         phi = math.pi * 0.95 * torch.tanh(x / self.c)          # wrap-free phase map
         A = torch.exp(1j * phi).permute(0, 2, 1)               # (B,D,T) complex
         psi = (A @ template.to(A.dtype)) * math.sqrt(self.P0)  # (B,D,N) complex soliton train
@@ -72,8 +74,9 @@ class SolitonChannel(nn.Module):
             return psi
         dz = distance / steps
         N = psi.shape[-1]
-        w = (torch.fft.fftfreq(N, d=1.0, device=psi.device) * 2 * math.pi).view(1, 1, -1)
-        lin = torch.exp(-1j * 0.5 * self.beta2 * w * w * (dz / 2))   # half dispersion
+        dt = self.T0 / 8.0
+        w = (torch.fft.fftfreq(N, d=dt, device=psi.device) * 2 * math.pi).view(1, 1, -1)
+        lin = torch.exp(1j * 0.5 * self.beta2 * w * w * (dz / 2))    # half dispersion
         for _ in range(steps):                                       # symmetric SSFM
             psi = torch.fft.ifft(torch.fft.fft(psi, dim=-1) * lin, dim=-1)
             psi = psi * torch.exp(1j * self.gamma * (psi.abs() ** 2) * dz)  # Kerr
