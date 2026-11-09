@@ -5,12 +5,15 @@ on:
     paths:
       - 'step*.py'
       - 'requirements.txt'
+      - 'pyproject.toml'
+      - 'non_freq/**'
+      - 'configs/**'
       - 'tests/**'
       - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
@@ -55,13 +58,10 @@ jobs:
           cat ci_logs/results.txt
           if grep -q FAIL ci_logs/results.txt; then echo "::error::kuch steps FAIL hue"; exit 1; fi
 
-      - name: Commit results back to repo
+      - name: Upload CI logs
         if: always()
-        run: |
-          mkdir -p ci_logs
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A ci_logs/ || echo "no logs"
-          git commit -m "ci: all-steps run results [skip ci]" || echo "nothing to commit"
-          git pull --rebase origin main || true
-          git push
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-all-steps-logs
+          path: ci_logs/
+          if-no-files-found: warn

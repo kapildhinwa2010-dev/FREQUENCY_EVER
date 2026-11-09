@@ -86,7 +86,8 @@ class SolitonChannel(nn.Module):
         samp = psi[:, :, centers.long()]                       # slot-center sampling
         dist = self.distance if distance is None else distance
         gphase = self.gamma * self.P0 * dist / 2              # deterministic global phase
-        samp = samp * torch.exp(-1j * gphase)
+        gphase_tensor = torch.as_tensor(-1j * gphase, dtype=psi.dtype, device=psi.device)
+        samp = samp * torch.exp(gphase_tensor)
         phi = torch.clamp(torch.angle(samp), -math.pi * 0.99, math.pi * 0.99)
         x = self.c * torch.atanh(torch.clamp(phi / (math.pi * 0.95), -0.999, 0.999))
         return x.permute(0, 2, 1).reshape(orig)

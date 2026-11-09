@@ -72,12 +72,13 @@ python -m pytest tests/ -q    # bounded smoke tests (seconds me)
 ```
 
 - **Bounded smoke tests**: converter roundtrip, soliton zero-loss physics (SSFM), 0D-3D gradient safety, soliton shape proof, unified model forward+generate
-- **run-all-steps CI**: har push pe 9 step demos, results `ci_logs/results.txt` me auto-commit
+- **run-all-steps CI**: relevant pushes pe 9 step demos, `ci_logs/` workflow artifact ke roop me upload hote hain
 - **CodeQL** weekly security scan + Dependabot
 
 ## ⚠️ Research Status (Honest Note)
 
-Ye ek **research prototype** hai. Physics claims (soliton zero-loss, SSFM audit) bounded smoke tests se verified hain;
+Ye ek **research prototype** hai. Physics assertions experimental smoke checks hain, broad validation nahi;
+checked-in `ci_logs/pytest.log` mein failures recorded hain, isliye isse passing ya current verification na samjhein.
 architecture kisi production LLM ka replacement nahi hai. Bina proof ke koi accuracy/benchmark claim nahi kiya gaya.
 
 ---
