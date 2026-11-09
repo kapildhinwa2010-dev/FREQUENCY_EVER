@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
     # --- (d) think & generate: soch kar bolo ---
     model.eval()
-    ctx = list("abcdefgh")
+    ctx = list("abcdefgh".encode("latin-1"))
     with torch.no_grad():
         for _ in range(16):
             _, _, ww = conv.encode(torch.tensor(ctx[-32:], dtype=torch.uint8))

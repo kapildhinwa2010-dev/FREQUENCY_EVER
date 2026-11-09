@@ -63,7 +63,9 @@ def grad_spectrum(model, topk=3):
         if p.grad is not None and p.grad.numel() > 8:
             g = p.grad.reshape(p.grad.shape[0], -1).mean(0)
             S = torch.fft.rfft(g).abs()
-            out.append((name, torch.topk(S, topk).indices.tolist()))
+            k = min(topk, S.numel())
+            if k:
+                out.append((name, torch.topk(S, k).indices.tolist()))
     return out
 
 
