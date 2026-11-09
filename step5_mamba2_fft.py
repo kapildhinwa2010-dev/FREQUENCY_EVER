@@ -22,7 +22,7 @@ def fft_matmul(x, W):
     X = torch.fft.rfft(x, n=pad, dim=-1).unsqueeze(-2)          # (..., 1, F)
     K = torch.fft.rfft(W.flip(0), n=pad, dim=0).transpose(0, 1) # (m, F)
     Y = torch.fft.irfft(X * K, n=pad, dim=-1)                   # (..., m, pad)
-    return Y[..., n - 1, :]                                     # dot-product tap
+    return Y[..., n - 1]                                        # dot-product tap
 
 
 def fft_matmul_b(x, W):
@@ -31,7 +31,7 @@ def fft_matmul_b(x, W):
     X = torch.fft.rfft(x, n=pad, dim=-1).unsqueeze(2)           # (B, T, 1, F)
     K = torch.fft.rfft(W.flip(1), n=pad, dim=1).transpose(1, 2) # (B, m, F)
     Y = torch.fft.irfft(X * K.unsqueeze(1), n=pad, dim=-1)      # (B, T, m, pad)
-    return Y[..., n - 1, :]
+    return Y[..., n - 1]
 
 
 def fft_causal_conv(u, w):

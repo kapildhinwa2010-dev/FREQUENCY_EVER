@@ -44,7 +44,7 @@ def test_soliton_channel_nD_grad_safe():
 
 
 def test_soliton_proof_shape_preserved():
-    cs, cl = soliton_proof(T=256, T0=8.0, distance=64.0, steps=32)
+    cs, cl = soliton_proof(T=256, T0=8.0, distance=64.0, steps=256)
     assert cs > 0.95, f"soliton shape not preserved: {cs}"
     assert cl < cs, "linear dispersion soliton se zyada preserve? impossible"
 
